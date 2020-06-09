@@ -119,7 +119,8 @@ type OAuthProxy struct {
 	Banner               string
 	Footer               string
 
-	CallbackErrorRedirects []options.CallbackErrorRedirect
+	CallbackErrorRedirects   []options.CallbackErrorRedirect
+	IncludeIDTokenInUserInfo bool
 }
 
 // UpstreamProxy represents an upstream server to proxy to
@@ -348,7 +349,8 @@ func NewOAuthProxy(opts *options.Options, validator func(string) bool) *OAuthPro
 		Banner:               opts.Banner,
 		Footer:               opts.Footer,
 
-		CallbackErrorRedirects: options.LoadCERs(opts.CallbackErrorRedirects),
+		CallbackErrorRedirects:   options.LoadCERs(opts.CallbackErrorRedirects),
+		IncludeIDTokenInUserInfo: opts.IncludeIDTokenInUserInfo,
 	}
 }
 
@@ -742,10 +744,17 @@ func (p *OAuthProxy) UserInfo(rw http.ResponseWriter, req *http.Request) {
 	userInfo := struct {
 		Email             string `json:"email"`
 		PreferredUsername string `json:"preferredUsername,omitempty"`
+		IDToken           string `json:"id_token,omitempty"`
 	}{
 		Email:             session.Email,
 		PreferredUsername: session.PreferredUsername,
+		IDToken:           "",
 	}
+
+	if p.IncludeIDTokenInUserInfo {
+		userInfo.IDToken = session.IDToken
+	}
+
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusOK)
 	json.NewEncoder(rw).Encode(userInfo)

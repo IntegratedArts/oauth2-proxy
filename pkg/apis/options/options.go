@@ -117,7 +117,8 @@ type Options struct {
 	PubJWKURL       string `flag:"pubjwk-url" cfg:"pubjwk_url"`
 	GCPHealthChecks bool   `flag:"gcp-healthchecks" cfg:"gcp_healthchecks"`
 
-	CallbackErrorRedirects []string `flag:"callback-error-redirect" cfg:"callback-error-redirect"`
+	CallbackErrorRedirects   []string `flag:"callback-error-redirect" cfg:"callback-error-redirect"`
+	IncludeIDTokenInUserInfo bool     `flag:"include-id-token-in-user-info" cfg:"include-id-token-in-user-info"`
 
 	// internal values that are set after config validation
 	redirectURL            *url.URL
@@ -196,7 +197,8 @@ func NewOptions() *Options {
 		SkipOIDCDiscovery:                false,
 		Logging:                          loggingDefaults(),
 
-		CallbackErrorRedirects: nil,
+		CallbackErrorRedirects:   nil,
+		IncludeIDTokenInUserInfo: false,
 	}
 }
 
@@ -328,6 +330,7 @@ func NewFlagSet() *pflag.FlagSet {
 	flagSet.String("user-id-claim", "email", "which claim contains the user ID")
 
 	flagSet.StringSlice("callback-error-redirect", []string{}, "the error string, regex to match text in error_description and a url to redirect to.")
+	flagSet.Bool("include-id-token-in-user-info", false, "Include the raw ID Token in the UserInfo result")
 
 	flagSet.AddFlagSet(loggingFlagSet())
 
