@@ -109,6 +109,8 @@ type Options struct {
 	PubJWKURL       string `flag:"pubjwk-url" cfg:"pubjwk_url"`
 	GCPHealthChecks bool   `flag:"gcp-healthchecks" cfg:"gcp_healthchecks"`
 
+	IncludeIDTokenInUserInfo bool `flag:"include-id-token-in-user-info" cfg:"include-id-token-in-user-info"`
+
 	// internal values that are set after config validation
 	redirectURL        *url.URL
 	proxyURLs          []*url.URL
@@ -184,6 +186,7 @@ func NewOptions() *Options {
 		InsecureOIDCAllowUnverifiedEmail: false,
 		SkipOIDCDiscovery:                false,
 		Logging:                          loggingDefaults(),
+		IncludeIDTokenInUserInfo:         false,
 	}
 }
 
@@ -291,6 +294,8 @@ func NewFlagSet() *pflag.FlagSet {
 	flagSet.Bool("gcp-healthchecks", false, "Enable GCP/GKE healthcheck endpoints")
 
 	flagSet.String("user-id-claim", "email", "which claim contains the user ID")
+
+	flagSet.Bool("include-id-token-in-user-info", false, "Include the raw ID Token in the UserInfo result")
 
 	flagSet.AddFlagSet(loggingFlagSet())
 
