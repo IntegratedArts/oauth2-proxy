@@ -119,8 +119,9 @@ type OAuthProxy struct {
 	Banner               string
 	Footer               string
 
-	CallbackErrorRedirects  []options.CallbackErrorRedirect
-	IncludeClaimsInUserInfo []string
+	CallbackErrorRedirects   []options.CallbackErrorRedirect
+	IncludeClaimsInUserInfo  []string
+	IncludeIDTokenInUserInfo bool
 }
 
 // UpstreamProxy represents an upstream server to proxy to
@@ -349,8 +350,9 @@ func NewOAuthProxy(opts *options.Options, validator func(string) bool) *OAuthPro
 		Banner:               opts.Banner,
 		Footer:               opts.Footer,
 
-		CallbackErrorRedirects:  options.LoadCERs(opts.CallbackErrorRedirects),
-		IncludeClaimsInUserInfo: opts.IncludeClaimsInUserInfo,
+		CallbackErrorRedirects:   options.LoadCERs(opts.CallbackErrorRedirects),
+		IncludeClaimsInUserInfo:  opts.IncludeClaimsInUserInfo,
+		IncludeIDTokenInUserInfo: opts.IncludeIDTokenInUserInfo,
 	}
 }
 
@@ -766,10 +768,13 @@ func (p *OAuthProxy) UserInfo(rw http.ResponseWriter, req *http.Request) {
 	if session.PreferredUsername != "" {
 		props["preferredUsername"] = session.PreferredUsername
 	}
+	if p.IncludeIDTokenInUserInfo {
+		props["IDToken"] = session.IDToken
+
+	}
 
 	//Optionally add or override items in list
 	if len(p.IncludeClaimsInUserInfo) > 0 {
-
 		claims, err := p.provider.GetIDTokenClaims(req.Context(), session.IDToken)
 
 		if err != nil {
@@ -780,7 +785,6 @@ func (p *OAuthProxy) UserInfo(rw http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-
 	sJSON, err := json.Marshal(props)
 
 	if err != nil {
