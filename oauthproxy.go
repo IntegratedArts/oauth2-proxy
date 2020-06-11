@@ -119,7 +119,8 @@ type OAuthProxy struct {
 	Banner               string
 	Footer               string
 
-	CallbackErrorRedirects []options.CallbackErrorRedirect
+	CallbackErrorRedirects  []options.CallbackErrorRedirect
+	IncludeClaimsInUserInfo []string
 }
 
 // UpstreamProxy represents an upstream server to proxy to
@@ -348,7 +349,8 @@ func NewOAuthProxy(opts *options.Options, validator func(string) bool) *OAuthPro
 		Banner:               opts.Banner,
 		Footer:               opts.Footer,
 
-		CallbackErrorRedirects: options.LoadCERs(opts.CallbackErrorRedirects),
+		CallbackErrorRedirects:  options.LoadCERs(opts.CallbackErrorRedirects),
+		IncludeClaimsInUserInfo: opts.IncludeClaimsInUserInfo,
 	}
 }
 
@@ -731,6 +733,21 @@ func (p *OAuthProxy) SignIn(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (p *OAuthProxy) addClaimToUserInfoMap(optionalClaim string, claims map[string]string, props map[string]string) {
+	bits := strings.Split(optionalClaim, "=")
+	outkey := strings.TrimSpace(bits[0])
+	inkey := outkey
+	if len(bits) > 1 {
+		inkey = strings.TrimSpace(strings.Join(bits[1:], "="))
+	}
+	if outkey != "" && inkey != "" {
+		val := strings.TrimSpace(claims[inkey])
+		if val != "" {
+			props[outkey] = val
+		}
+	}
+}
+
 //UserInfo endpoint outputs session email and preferred username in JSON format
 func (p *OAuthProxy) UserInfo(rw http.ResponseWriter, req *http.Request) {
 
@@ -739,16 +756,42 @@ func (p *OAuthProxy) UserInfo(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	userInfo := struct {
-		Email             string `json:"email"`
-		PreferredUsername string `json:"preferredUsername,omitempty"`
-	}{
-		Email:             session.Email,
-		PreferredUsername: session.PreferredUsername,
+
+	props := make(map[string]string)
+
+	//Add the UserInfo items from existing list
+	if session.Email != "" {
+		props["email"] = session.Email
 	}
+	if session.PreferredUsername != "" {
+		props["preferredUsername"] = session.PreferredUsername
+	}
+
+	//Optionally add or override items in list
+	if len(p.IncludeClaimsInUserInfo) > 0 {
+
+		claims, err := p.provider.GetIDTokenClaims(req.Context(), session.IDToken)
+
+		if err != nil {
+			logger.Printf("Error extracting claims from ID Token in user info endpoint: %s", err.Error())
+		} else {
+			for _, optionalClaim := range p.IncludeClaimsInUserInfo {
+				p.addClaimToUserInfoMap(optionalClaim, claims, props)
+			}
+		}
+	}
+
+	sJSON, err := json.Marshal(props)
+
+	if err != nil {
+		logger.Printf("Error marshalling json in user info endpoint: %s", err.Error())
+		return
+	}
+
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusOK)
-	json.NewEncoder(rw).Encode(userInfo)
+	rw.Write(sJSON)
+	rw.Write([]byte("\n"))
 }
 
 // SignOut sends a response to clear the authentication cookie
